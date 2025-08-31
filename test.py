@@ -9,6 +9,9 @@ av = AppVersion()
 def fn():
 	print("Hello world")
 
+def alert():
+	print("new alert function")
+
 def main():
     try:
         conn1 = get_mysql_connection()
