@@ -17,6 +17,10 @@ def alert2():
 def alert3():
         print("new alert function")
 
+def alert4():
+        print("new alert function")
+
+
 def main():
     try:
         conn1 = get_mysql_connection()
