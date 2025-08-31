@@ -17,8 +17,8 @@ def alert2():
 def alert3():
         print("new alert function")
 
-def alert4():
-        print("new alert function")
+def alert4_rename():
+        print("new alert function to alert")
 
 def print_random_text():
 	print("print random text when called")
