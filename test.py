@@ -19,8 +19,9 @@ def alert3():
 
 def alert4():
         print("new alert function")
+
 def print_random_text():
-	print("print random text")
+	print("print random text when called")
 
 def main():
     try:
