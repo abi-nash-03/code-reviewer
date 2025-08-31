@@ -11,6 +11,13 @@ def print():
 	'''
 	print("This is a sample print function")
 
+def alert():
+        '''
+        This function will print the  text typed into it
+        '''
+        print("This is a sample print function")
+
+
 def main():
     try:
         conn1 = get_mysql_connection()
