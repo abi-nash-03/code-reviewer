@@ -14,6 +14,8 @@ def alert():
 
 def alert2():
         print("new alert function")
+def alert3():
+        print("new alert function")
 
 def main():
     try:
