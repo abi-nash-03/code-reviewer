@@ -17,6 +17,12 @@ def alert():
         '''
         print("This is a sample print function")
 
+def alert2():
+        '''
+        This function will print the  text typed into it
+        '''
+        print("This is a sample print function")
+
 
 def main():
     try:
