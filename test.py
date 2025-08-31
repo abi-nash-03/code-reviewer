@@ -12,6 +12,9 @@ def fn():
 def alert():
 	print("new alert function")
 
+def alert2():
+        print("new alert function")
+
 def main():
     try:
         conn1 = get_mysql_connection()
