@@ -1,10 +1,15 @@
-  GNU nano 6.2                                                                       main.py                                                                                 
 import time
 from config.mysql import get_mysql_connection
 from models.app_version import AppVersion
 import os
 
 av = AppVersion()
+
+def print():
+	'''
+	This function will print the  text typed into it
+	'''
+	print("This is a sample print function")
 
 def main():
     try:
