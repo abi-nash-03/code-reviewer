@@ -4,6 +4,8 @@ from models.app_version import AppVersion
 import os
 
 av = AppVersion()
+
+# main function
 def main():
     try:
         conn1 = get_mysql_connection()
