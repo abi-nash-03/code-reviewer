@@ -23,6 +23,12 @@ def alert2():
         '''
         print("This is a sample print function")
 
+def alert3():
+        '''
+        This function will print the  text typed into it
+        '''
+        print("This is a sample print function")
+
 
 def main():
     try:
