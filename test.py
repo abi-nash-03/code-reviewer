@@ -6,6 +6,9 @@ import os
 
 av = AppVersion()
 
+def fn():
+	print("Hello world")
+
 def main():
     try:
         conn1 = get_mysql_connection()
