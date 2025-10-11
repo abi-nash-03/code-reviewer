@@ -27,15 +27,28 @@ pr_number = None
 repository_name = None
 owner = None
 
-def get_pr_diff_bitbucket(head_hash, base_hash):
+
+def get_access_toke(repo_slug):
+	'''
+	This will return the access token specific to each repo
+ 
+	return: string / None
+ 	'''
+  
+	access_token = None
+	env_name = "BITBUCKET_TOKEN" + "_" + repo_slug
+	access_token = os.environ.get(env_name)
+ 
+	return access_token
+
+def get_pr_diff_bitbucket(head_hash, base_hash, repo_slug):
 	'''
 	This will get the diff in code from the bitbucket
  	'''
   
-	auth_token = os.environ.get('BITBUCKET_TOKEN')
+	auth_token = get_access_toke(repo_slug)
 	headers = {"Authorization": f"Bearer {auth_token}"}
 	workspace = os.environ.get('BITBUCKET_WORKSPACE')
-	repo_slug = os.environ.get('BITBUCKET_REPO_SLUG')
  
 	diff_url = f'https://api.bitbucket.org/2.0/repositories/{workspace}/{repo_slug}/diff/{head_hash}..{base_hash}'
  
@@ -129,7 +142,7 @@ def get_suggestions_from_openAi(prompt):
 	return review_suggestions
 
 
-def add_comments_to_pr_bitbucket(pr_id, suggestions):
+def add_comments_to_pr_bitbucket(pr_id, suggestions, repo_slug):
 	"""
 	This will add connects to the PR
 		-Bulk comments are not supported in bitbucket
@@ -138,8 +151,7 @@ def add_comments_to_pr_bitbucket(pr_id, suggestions):
 	
 	suggestions_json = json.loads(suggestions)
 	workspace = os.environ.get('BITBUCKET_WORKSPACE')
-	repo_slug = os.environ.get('BITBUCKET_REPO_SLUG')
-	auth_token = os.environ.get('BITBUCKET_TOKEN')
+	auth_token = get_access_toke(repo_slug=repo_slug)
 	headers = {"Authorization": f"Bearer {auth_token}"}
  
  
@@ -148,15 +160,17 @@ def add_comments_to_pr_bitbucket(pr_id, suggestions):
 	for suggestion in suggestions_json:
 		try:
 			response = requests.post(comment_url, headers=headers, json=suggestion)
-			if response.status_code == 200:	
+			if response.status_code == 200 or response.status_code == 201:	
 				print("Review added successfully")
 			else:
 				print("Falied to add review.")
+				print("--------------------------------")
+				print(response.json())
 				raise Exception(f"Failed to add comments to pr: {response.status_code}, {response.text}")	
 		except Exception as e:
 			pass
 
-def is_merge_commit(commit_hash):
+def is_merge_commit(commit_hash, repo_slug):
 	'''
 	This will return whether a commit is a merge commit or a normal commit
 		-This will check the parent of the commit if was made through bitbucket
@@ -164,7 +178,6 @@ def is_merge_commit(commit_hash):
 	'''
 	
 	workspace = os.environ.get('BITBUCKET_WORKSPACE')
-	repo_slug = os.environ.get('BITBUCKET_REPO_SLUG')
 	auth_token = os.environ.get('BITBUCKET_TOKEN')
 	headers = {"Authorization": f"Bearer {auth_token}"}
  
@@ -186,10 +199,10 @@ def is_merge_commit(commit_hash):
 
 		return False
 	except Exception as e:
-		print(e)
+		print(f"Error while checking is merge commit {e}")
 		return False
 
-def process_ai_review(pr_id, head_hash, base_hash):
+def process_ai_review(pr_id, head_hash, base_hash, repo_slug):
 	'''
 	This will
 		-Get the diff between the head and base commit
@@ -200,17 +213,17 @@ def process_ai_review(pr_id, head_hash, base_hash):
 	try:
   
 		# dont run review if it was commit msg
-		is_merge = is_merge_commit(head_hash)
+		is_merge = is_merge_commit(head_hash, repo_slug)
   
 		if is_merge:
 			print("this is a merge commit so not proceeding further")
 			return
 
-		code_diff = get_pr_diff_bitbucket(head_hash=head_hash, base_hash=base_hash)
+		code_diff = get_pr_diff_bitbucket(head_hash=head_hash, base_hash=base_hash, repo_slug=repo_slug)
 		code_diff_json_encoded = json.dumps(code_diff)
 		prompt = get_prompt_bitbucket(code_diff_json_encoded)
 		ai_review_suggestions = get_suggestions_from_openAi(prompt)
-		add_comments_to_pr_bitbucket(pr_id, ai_review_suggestions)
+		add_comments_to_pr_bitbucket(pr_id, ai_review_suggestions, repo_slug)
 	except Exception as e:
 		print("xxxxxxxxxxxxxxxxxxxxx")
 		print('-----------ERROR--------')
@@ -261,25 +274,27 @@ async def bitbucket_webhook(request: Request, background_tasks: BackgroundTasks)
 	print("----------------------------signature verified successfully--------------------------")
 
 	payload = body_json
- 
 	if payload is None:
 		return
 
 	pull_request = payload['pullrequest']
+	repository = payload['repository']
 	pr_id = pull_request['id']
+ 
 	head_hash = pull_request['source']['commit']['hash']
 	base_hash = pull_request['destination']['commit']['hash']
- 
+	repo_slug = repository['name']
+
 	print("-----------------------------------------")
 	print(f'x_bitbucket_event = {x_bitbucket_event}')
  
 	if x_bitbucket_event == 'pullrequest:created':
-		redis_conn.set(f"bitbucket_pr_id:{pr_id}:head", head_hash)
+		redis_conn.set(f"bitbucket_pr_id:{repo_slug}:{pr_id}:head", head_hash)
 
 	elif x_bitbucket_event == 'pullrequest:updated':
-		old_head = redis_conn.get(f"bitbucket_pr_id:{pr_id}:head")
+		old_head = redis_conn.get(f"bitbucket_pr_id:{repo_slug}:{pr_id}:head")
 		if old_head != head_hash:
-			redis_conn.set(f"bitbucket_pr_id:{pr_id}:head", head_hash)
+			redis_conn.set(f"bitbucket_pr_id:{repo_slug}:{pr_id}:head", head_hash)
 			base_hash = old_head
 	
 		elif old_head == head_hash:
@@ -288,7 +303,7 @@ async def bitbucket_webhook(request: Request, background_tasks: BackgroundTasks)
 			pass
 
 	
-	background_tasks.add_task(process_ai_review, pr_id, head_hash, base_hash)
+	background_tasks.add_task(process_ai_review, pr_id, head_hash, base_hash, repo_slug)
  
 	return {"status": "ok"}
 
